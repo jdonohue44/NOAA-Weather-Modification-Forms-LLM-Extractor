@@ -1,0 +1,5 @@
+python-dotenv
+pymupdf4llm
+pytesseract
+pdf2image
+openai

@@ -1,0 +1,5 @@
+.env
+.DS_Store
+noaa-files/
+accuracy-evaluations/
+noaa-file-backups/
