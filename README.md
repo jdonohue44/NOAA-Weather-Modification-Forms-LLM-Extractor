@@ -7,5 +7,5 @@ Extracts key information from 1,025 historical NOAA Form 17-4 (Initial Report On
 1. `cd code/`
 2. Install required dependencies `pip install dependencies.txt`
 3. Run `python parse-noaa-files-and-save-to-csv.py`
-4. View the output in the `results` folder.
+4. View the generated dataset in the `dataset` folder.
 
