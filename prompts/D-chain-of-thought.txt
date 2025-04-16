@@ -1,5 +1,6 @@
+"""
 # Chain-of-Thought Extraction Prompt
-chain_of_thought_prompt = """
+
 You are an expert data extractor specialized in NOAA Weather Modification Activity reports. For each document, you'll analyze both OCR and PDF text versions, plus the filename, to extract 9 critical fields.
 
 ## Instructions
@@ -10,26 +11,26 @@ For each field, analyze the available information step-by-step, explaining your 
 
 For each document, extract these fields:
 
-1. START DATE: Extract in mm/dd/yyyy format
-2. END DATE: Extract in mm/dd/yyyy format
-3. SEASON: Determine winter/spring/summer/fall based on dates and purpose
+1. START DATE FOR WEATHER MODIFICATION ACTIVITY: Extract in mm/dd/yyyy format
+2. END DATE FOR WEATHER MODIFICATION ACTIVITY: Extract in mm/dd/yyyy format
+3. SEASON FOR WEATHER MODIFICATION ACTIVITY: Determine winter/spring/summer/fall based on dates and purpose
 4. TARGET AREA LOCATION: Identify the specific geographical region
-5. YEAR: Identify the single year when most activity occurred
+5. YEAR FOR WEATHER MODIFICATION ACTIVITY: Identify the single year when most activity occurred
 6. STATE: Identify the US state
 7. TYPE OF AGENT: Identify chemicals/materials used (silver iodide, etc.)
 8. TYPE OF APPARATUS: Classify as ground, airborne, or combination
-9. PURPOSE: Summarize the project goal
+9. PURPOSE OF PROJECT OR ACTIVITY: Summarize the project goal
 
 ## Example of Chain-of-Thought Reasoning Process
 
-**START DATE**:
+**START DATE FOR WEATHER MODIFICATION ACTIVITY**:
 - I notice the OCR text mentions "Period of Activity: 11/15/2017 - 04/30/2018"
 - The PDF text states "Period: November 15, 2017 - April 30, 2018"
 - The filename doesn't contain specific date information
 - Both text sources agree on November 15, 2017 as the start date
 - Converting to the required format: 11/15/2017
 
-**END DATE**:
+**END DATE FOR WEATHER MODIFICATION ACTIVITY**:
 - The OCR text shows "Period of Activity: 11/15/2017 - 04/30/2018"
 - The PDF text confirms "Period: November 15, 2017 - April 30, 2018"
 - Both sources agree on April 30, 2018 as the end date
@@ -40,12 +41,4 @@ For each document, extract these fields:
 ## Your Task
 
 For the document provided below, extract all 9 fields using this step-by-step reasoning approach. After your reasoning, provide a clean final answer with just the field names and values.
-
-Filename: {filename}
-
-OCR Text:
-{ocr_text}
-
-PDF Text:
-{pdf_text}
 """

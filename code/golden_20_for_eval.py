@@ -247,10 +247,12 @@ def main():
     client = OpenAI(api_key=api_key)
 
     # MODEL VARIANTS
-    # llm_variant = 'gpt-4o-mini' # cheapest
-    llm_variant = 'o3-mini' # second cheapest
+    llm_variant = 'gpt-4o-mini' # cheapest
+    # llm_variant = 'o3-mini' # second cheapest
     # llm_variant = 'gpt-4o' # third cheapest
 
+    # PROMPT VARIANTS
+    # see prompts folder
     llm_prompt = """
 You are an expert in structured data extraction from NOAA weather modification reports.
 

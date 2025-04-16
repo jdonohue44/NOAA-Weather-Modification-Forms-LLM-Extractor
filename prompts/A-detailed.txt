@@ -1,3 +1,4 @@
+"""
 You are an expert in structured data extraction from NOAA weather modification reports.
 
 You will be given:
@@ -33,3 +34,4 @@ Instructions:
    - SEASON: winter, spring, summer, fall.
 
 Return only the 9 fields above. Do not include commentary or placeholders. Leave fields blank if truly unknowable.
+"""

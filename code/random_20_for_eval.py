@@ -13,6 +13,8 @@ import pytesseract
 from pdf2image import convert_from_path
 import re
 import fitz
+from unstract.llmwhisperer import LLMWhispererClientV2
+from unstract.llmwhisperer.client_v2 import LLMWhispererClientException
 
 # Calling OpenAI
 from openai import OpenAI, OpenAIError
@@ -34,27 +36,74 @@ def save_to_csv(results, output_file, fieldnames):
             writer.writeheader()
         writer.writerows(results)
 
-def extract_form_174_and_174A_text(file_path):
+def extract_all_text_ocr(file_path):
+    data = {'ocr_text': ''}
+
+    # # --- LLM Whisperer ---
+    # client = LLMWhispererClientV2()
+    # try:
+    #     result = client.whisper(
+    #                 file_path=file_path,
+    #                 wait_for_completion=True,
+    #                 wait_timeout=200,
+    #             )
+    #     print(result['extraction']['result_text'])
+    # except LLMWhispererClientException as e:
+    #     print(e)
+
+    # --- OCR ---
+    try:
+        images = convert_from_path(file_path)
+        all_text = []
+        for i, img in enumerate(images, 1):
+            text = pytesseract.image_to_string(img, lang='eng')
+            all_text.append(text.strip())
+        data['ocr_text'] = '\n'.join(all_text)
+    except Exception as e:
+        print(f"Error extracting OCR text: {e}")
+        data['ocr_text'] = '[Error extracting OCR text]'
+
+    return data
+
+def extract_all_text_both_methods(file_path):
     data = {'pymu_text': '', 'ocr_text': ''}
 
+    # --- PyMuPDF ---
+    try:
+        pages = pymupdf4llm.to_markdown(doc=file_path, page_chunks=True)
+        data['pymu_text'] = '\n\n'.join(page['text'] for page in pages if page.get('text'))
+    except Exception as e:
+        print(f"Error extracting pymu_text: {e}")
+        data['pymu_text'] = '[Error extracting PDF-to-text]'
+
+    # --- OCR ---
+    try:
+        images = convert_from_path(file_path)
+        all_text = []
+        for i, img in enumerate(images, 1):
+            text = pytesseract.image_to_string(img, lang='eng')
+            all_text.append(text.strip())
+        data['ocr_text'] = '\n'.join(all_text)
+    except Exception as e:
+        print(f"Error extracting OCR text: {e}")
+        data['ocr_text'] = '[Error extracting OCR text]'
+
+    return data
+
+def extract_form_17_4_text(file_path):
+    data = {'ocr_text': ''}
+
     def check_form_17_4(text):
-        keywords = ["initial", "report", "weather", "modification", "noaa", "form"]
+        keywords = ["noaa form 17-4", "initial report"]
         text_lower = text.lower()
         return all(keyword in text_lower for keyword in keywords)
     
-    def check_form_17_4_A(text):
-        keywords = ["interim", "final", "report", "activity", "weather", "modification", "noaa", "form"]
-        text_lower = text.lower()
-        return all(keyword in text_lower for keyword in keywords)
-
     patterns = {
         '17-4': check_form_17_4,
-        '17-4A': check_form_17_4_A
     }
 
     titles = {
         '17-4': "=== NOAA Form 17-4 (Initial Report) ===",
-        '17-4A': "=== NOAA Form 17-4A (Final/Interim Report) ==="
     }
 
     def classify_form(text):
@@ -62,20 +111,6 @@ def extract_form_174_and_174A_text(file_path):
             if pattern_fn(text): 
                 return key
         return None
-
-    # --- PyMuPDF ---
-    try:
-        page_data = pymupdf4llm.to_markdown(doc=file_path, page_chunks=True)
-        formatted_chunks = []
-        for page_dict in page_data:
-            text = page_dict["text"]
-            form_type = classify_form(text)
-            if form_type:
-                formatted_chunks.append(f"{titles[form_type]}\n{text}")
-        data['pymu_text'] = '\n\n'.join(formatted_chunks) if formatted_chunks else '[No content extracted]'
-    except Exception as e:
-        print(f"Error extracting pymu_text: {e}")
-        data['pymu_text'] = '[Error extracting PDF-to-text]'
 
     # --- OCR ---
     try:
@@ -137,16 +172,13 @@ def parse_gpt_response(response_text):
 def process_file(file, file_path, client, llm_variant, llm_prompt):
     # STEP 1: CONVERT PDF TO TEXT FOR LLM
     try:
-        text_data = extract_form_174_and_174A_text(file_path)
+        text_data = extract_all_text_ocr(file_path)
         pdf_text = f"""
 
         FILENAME: {file}
 
-        === OCR EXTRACTION ===
         {text_data['ocr_text']}
 
-        === PDF-TO-TEXT EXTRACTION ===
-        {text_data['pymu_text']}
         """
 
     except Exception as e:
@@ -202,7 +234,7 @@ def main():
     # FILE SYSTEM
     input_directory = "../noaa-files"
     output_file = f"../dataset/test/random-20.csv"
-    random_files = select_random_files(input_directory, 10)
+    random_files = select_random_files(input_directory, 20)
     fieldnames = [
         'filename', 'start_date', 'end_date', 'season',
         'target_area', 'year', 'state', 'type_of_agent', 'type_of_apparatus',
@@ -218,10 +250,8 @@ def main():
 You are an expert in structured data extraction from NOAA weather modification reports.
 
 You will be given:
-- The filename of a Weather Modification Activity report (NOAA Forms 17-4 and 17-4A) which often contains year, state, and project name.
-- Two versions of the report:
-  1. Optical Character Recognition (OCR) extraction, using pytesseract.image_to_string
-  2. PDF-to-text extraction, using pymupdf4llm.to_markdown
+- The filename of a Weather Modification Activity report (NOAA Form 17-4) which often contains year, state, and project name.
+- The Weather Modification Activity report (NOAA Form 17-4) via Optical Character Recognition (OCR) extraction, using pytesseract.image_to_string
 
 Your task is to extract the following fields as accurately and completely as possible by comparing both text versions, inferring context when values are not explicitly stated, and using the filename:
 
