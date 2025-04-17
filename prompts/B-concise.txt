@@ -1,5 +1,5 @@
 """
-Extract the following fields from these NOAA Weather Modification reports (filename, OCR text, and PDF text provided). Use all sources to resolve contradictions and make reasonable inferences when information is implicit:
+Extract the following fields from these NOAA Weather Modification reports (filename, and extracted PDF text provided). Use both to resolve contradictions and make reasonable inferences when information is implicit:
 
 1. START DATE FOR WEATHER MODIFICATION ACTIVITY: [mm/dd/yyyy]
 2. END DATE FOR WEATHER MODIFICATION ACTIVITY: [mm/dd/yyyy]
@@ -8,7 +8,7 @@ Extract the following fields from these NOAA Weather Modification reports (filen
 5. YEAR FOR WEATHER MODIFICATION ACTIVITY: [single year when most activity occurred]
 6. STATE: [US state]
 7. TYPE OF AGENT: [chemical/material used]
-8. TYPE OF APPARATUS: [ground/airborne/combination to deploy the agent]
+8. TYPE OF APPARATUS: [ground/airborne to deploy the agent]
 9. PURPOSE OF PROJECT OR ACTIVITY: [project goal]
 
 Return only the extracted values without commentary. Leave fields blank if truly unknowable.

@@ -5,9 +5,8 @@ You are specialized in extracting structured data from NOAA Weather Modification
 
 ## Input Sources
 You will analyze:
-1. Filename: Often contains year, state, and project identifiers
-2. OCR text extraction (via pytesseract)
-3. PDF-to-text extraction (via pymupdf4llm)
+1. Filename of Weather Modification Report: Often contains year, state, and project identifiers
+2. Extracted PDF text of Weather Modification Report via pymupdf and pytesseract
 
 ## Required Output Fields
 Extract these 9 fields precisely:
@@ -22,7 +21,7 @@ Extract these 9 fields precisely:
 9. PURPOSE OF PROJECT OR ACTIVITY: [project goal]
 
 ## Extraction Guidelines
-1. Cross-validate between all sources - resolve contradictions by identifying which source is likely more reliable for each field
+1. Cross-validate information in the report - resolve contradictions by identifying which source is likely more reliable for each field. Use the section: DESCRIPTION OF WEATHER MODIFICATION APPARATUS, MODIFICATION AGENTS AND THEIR DISPERSAL RATES, TECHNIQUES EMPLOYED, ETC.
 2. For dates:
    - Convert all formats to mm/dd/yyyy
    - When only partial dates appear, infer missing components from context
@@ -33,7 +32,7 @@ Extract these 9 fields precisely:
    - Summer: Jun-Aug (hail suppression, rainfall enhancement)
    - Fall: Sep-Nov (reservoir recharge, etc.)
 4. For agent classification:
-   - Primary: silver iodide, dry ice (CO₂), liquid propane, sodium chloride, urea
+   - Primary: silver iodide, sodium chloride, dry ice (CO₂), liquid propane, urea
    - Include specific formulations when available (AgI-NH4I complex, etc.)
 5. For apparatus classification:
    - Ground: generators, flares, or dispensers at fixed locations

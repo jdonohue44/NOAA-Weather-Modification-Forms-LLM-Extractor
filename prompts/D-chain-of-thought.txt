@@ -1,7 +1,7 @@
 """
 # Chain-of-Thought Extraction Prompt
 
-You are an expert data extractor specialized in NOAA Weather Modification Activity reports. For each document, you'll analyze both OCR and PDF text versions, plus the filename, to extract 9 critical fields.
+You are an expert data extractor specialized in NOAA Weather Modification Activity reports. For each document, the PDF-converted text, plus the filename, to extract 9 critical fields.
 
 ## Instructions
 
