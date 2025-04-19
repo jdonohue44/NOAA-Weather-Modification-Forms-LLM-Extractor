@@ -58,13 +58,23 @@ def save_to_csv(results, output_file, fieldnames):
             writer.writeheader()
         writer.writerows(results)
 
+# def save_method_counts(counter, file_path):
+#     os.makedirs(os.path.dirname(file_path), exist_ok=True)
+#     with open(file_path, "w") as f:
+#         f.write("PDF extraction methods used:\n")
+#         for method, count in counter.items():
+#             f.write(f"{method}: {count}\n")
+#     print(f"Method counts saved to {file_path}")
+
 def save_method_counts(counter, file_path):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "w") as f:
-        f.write("PDF extraction methods used:\n")
+    with open(file_path, "a") as f:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"\n--- Method counts at {timestamp} ---\n")
         for method, count in counter.items():
             f.write(f"{method}: {count}\n")
-    print(f"Method counts saved to {file_path}")
+    print(f"Method counts appended to {file_path}")
+
 
 def contains_all_phrases(text):
     text_lower = text.lower()
@@ -133,8 +143,8 @@ def parse_gpt_response(response_text):
     keyword_mapping = {
         'year of weather modification activity': 'year',
         'season of weather modification activity': 'season',
-        'us state': 'state',
-        'type of agent': 'agent',
+        'u.s. state that weather modification activity is taking place': 'state',
+        'type of cloud seeding agent': 'agent',
         'type of apparatus': 'apparatus',
         'purpose of project or activity': 'purpose',
         'target area location': 'target_area',
@@ -221,9 +231,9 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
 
 def main():
     # FILE SYSTEM
-    input_directory = "../noaa-files/"
-    output_file = f"../dataset/test/cloud_seeding_us_2000_2025.csv"
-    checkpoint_file = "../dataset/processed_files.txt"
+    input_directory = "../accuracy-evals/golden-50"
+    output_file = f"../dataset/test/golden-50-gpt-4.1-mini-prompt-A.csv"
+    checkpoint_file = "../dataset/test/processed_files.txt"
     processed_files = load_processed_files(checkpoint_file)
     all_files = [f for f in os.listdir(input_directory) if os.path.isfile(os.path.join(input_directory, f))]
     files_to_process = [f for f in all_files if f not in processed_files]
@@ -245,8 +255,8 @@ def main():
     api_key = os.getenv("OPENAI_API_KEY")
     gpt_client = OpenAI(api_key=api_key)
 
-    llm_variant = 'gpt-4o-mini' 
-    # llm_variant = 'gpt-4.1-mini'
+    # llm_variant = 'gpt-4o-mini' 
+    llm_variant = 'gpt-4.1-mini'
 
     # llm_variant = 'o3-mini'
     # llm_variant = 'o4-mini'
@@ -255,27 +265,31 @@ def main():
     # llm_variant = 'gpt-4.1' 
 
     llm_prompt = f"""
-You are an expert in structured data extraction from NOAA weather modification reports.
+# NOAA Weather Modification Report Extraction Expert
+You are specialized in extracting structured data from NOAA Weather Modification Activity reports with high precision. 
+Your task is to extract 9 specific fields about the weather modification project.
 
+## Input Sources
 You will be given:
-- The FILENAME of a Weather Modification Activity report which contains year, state, and geographic location information.
-- The text version of the Initial Report on Weather Modification Activity (NOAA Form 17-4), extracted using PDF-to-text (pymupdf) or Optical Character Recognition (OCR).
+1. Filename of Weather Modification Report, which will contain year, state, and geographic identifiers.
+2. Extracted PDF text of the Weather Modification Report. 
 
-Your task is to extract the following fields as accurately and completely as possible by inferring context when values are not explicitly stated, and using the filename:
+## Required Output Fields
+Extract these nine fields precisely and ensure values are lowercase, comma-separated if multiple (e.g. "silver iodide, carbon dioxide"): 
 
-- YEAR OF WEATHER MODIFICATION ACTIVITY:
-- SEASON OF WEATHER MODIFICATION ACTIVITY:
-- US STATE:
-- TYPE OF AGENT:
-- TYPE OF APPARATUS:
-- PURPOSE OF PROJECT OR ACTIVITY:
-- TARGET AREA LOCATION:
-- START DATE OF WEATHER MODIFICATION ACTIVITY:
-- END DATE OF WEATHER MODIFICATION ACTIVITY:
+1. YEAR OF WEATHER MODIFICATION ACTIVITY
+2. SEASON OF WEATHER MODIFICATION ACTIVITY
+3. U.S. STATE THAT WEATHER MODIFICATION ACTIVITY IS TAKING PLACE
+4. TYPE OF CLOUD SEEDING AGENT
+5. TYPE OF APPARATUS
+6. PURPOSE OF PROJECT OR ACTIVITY
+7. TARGET AREA LOCATION
+8. START DATE OF WEATHER MODIFICATION ACTIVITY
+9. END DATE OF WEATHER MODIFICATION ACTIVITY
 
-Instructions:
-1. Resolve any discrepancies using project description, context, logical inference, and cross-referencing.
-2. Use the filename to infer YEAR and STATE. For example:
+## Extraction Guidelines
+1. Cross-validate information in the report using DESCRIPTION OF WEATHER MODIFICATION APPARATUS, MODIFICATION AGENTS AND THEIR DISPERSAL RATES, TECHNIQUES EMPLOYED, ETC.
+2. Use the filename to infer YEAR and STATE information. For example:
    - 2018UTNORT-1.pdf >>> 2018, Utah
    - 2019COCMRB_CenCOMtnRvrBasings17-4.pdf >>> 2019, Colorado
    - 2017IDCCSN[17-1691]ClarkCo_noaa17-18.pdf >>> 2017, Idaho
@@ -283,17 +297,42 @@ Instructions:
    - San Joaquin River_05-1278_01.01.2005-12.31.2005.pdf >>> 2005, California
    - Eastern Sierra_00-1038_01.01.2000-12.31.2000.pdf >>> 2000, California
    - Kings River_06-1327_01.01.2006-12.31.2006.pdf >>> 2006, California
-3. Avoid using the NOAA headquarters location in Maryland as the target area location for the weather modification activity.
-4. Use START DATE, END DATE, and PURPOSE to infer SEASON based on U.S. norms.
-5. Translate dates to consistent formatting: mm/dd/yyy
-6. For the YEAR, choose the single year the activity mostly occurred in. Do not use a range.
-7. Use the following to classify:
-   - AGENT: silver iodide, carbon dioxide, sodium chloride, urea
-   - APPARATUS: ground, airborne
-   - SEASON: winter, spring, summer, fall
+2. For dates:
+   - Convert all formats to mm/dd/yyyy
+   - When only partial dates appear, infer missing components from context
+   - Fiscal years should be converted to calendar date ranges
+3. For season determination:
+   - winter: Dec-Feb (snow augmentation, etc.)
+   - spring: Mar-May (flood mitigation, agriculture)
+   - summer: Jun-Aug (hail suppression, rainfall enhancement)
+   - fall: Sep-Nov (reservoir recharge, etc.)
+4. For agent classification:
+   - Primary: silver iodide, sodium chloride
+5. For apparatus classification:
+   - ground: generators, flares, or dispensers at fixed locations
+   - airborne: aircraft-mounted equipment, often flares
+   - ground, airborne: when both methods are employed
+6. Target area specificity:
+   - Include watershed names, mountain ranges, counties, or water bodies
+   - Exclude NOAA headquarters addresses (Silver Spring, MD) or operator addresses
 
-Return only the 9 fields above. Do not include commentary or placeholders. Leave fields blank if truly unknowable.
-    """
+## Response Format
+Return only the extracted field values in a clean key-value format without explanations, uncertainties, or placeholders.
+Ensure values are lowercase.
+Comma-separate multiple values (e.g. "silver iodide, carbon dioxide"), (e.g. "augment snowpack, increase rain"), (e.g. "ground, airborne").
+
+YEAR OF WEATHER MODIFICATION ACTIVITY: [extracted value]
+SEASON OF WEATHER MODIFICATION ACTIVITY: [extracted value]
+U.S. STATE THAT WEATHER MODIFICATION ACTIVITY IS TAKING PLACE: [extracted value]
+TYPE OF CLOUD SEEDING AGENT: [extracted value]
+TYPE OF APPARATUS: [extracted value]
+PURPOSE OF PROJECT OR ACTIVITY: [extracted value]
+TARGET AREA LOCATION: [extracted value]
+START DATE OF WEATHER MODIFICATION ACTIVITY: [extracted value]
+END DATE OF WEATHER MODIFICATION ACTIVITY: [extracted value]
+
+Return only the 9 fields above. Do not include commentary, explanations, or placeholders. Leave fields blank if truly unknowable after exhausting all inference methods.
+"""
     
     # LLM Whisperer Client
     llm_whisper_client = LLMWhispererClientV2()
@@ -314,7 +353,7 @@ Return only the 9 fields above. Do not include commentary or placeholders. Leave
             save_to_csv(results, output_file, fieldnames)
             print(f"Saved {i} processed files to {output_file}")
             print(f"PDF extraction methods used: {dict(method_counter)}")
-            save_method_counts(method_counter, '../dataset/pdf_method_counts.txt')
+            save_method_counts(method_counter, '../dataset/test/pdf_method_counts.txt')
             results = []
 
     if results:
@@ -323,7 +362,7 @@ Return only the 9 fields above. Do not include commentary or placeholders. Leave
 
     print(f"Processing complete. Final results saved to {output_file}")
     print(f"PDF extraction methods used: {dict(method_counter)}")
-    save_method_counts(method_counter, '../dataset/pdf_method_counts.txt')
+    save_method_counts(method_counter, '../dataset/test/pdf_method_counts.txt')
 
 if __name__ == "__main__":
     main()

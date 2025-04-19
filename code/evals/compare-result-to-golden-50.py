@@ -1,17 +1,13 @@
 import pandas as pd
 
-# File paths and key column (no command-line arguments needed)
-result = '../dataset/test/gpt-4o-mini-prompt-A.csv'
-golden = '../accuracy-evals/golden-50.csv'
+result = '../../dataset/test/golden-50-gpt-4.1-mini-prompt-A.csv'
+golden = '../../accuracy-evals/golden-50.csv'
 key = 'filename'
 
 def compute_field_accuracy(output_csv: str,
                            golden_csv: str,
                            key_column: str = 'filename'):
-    """
-    Compare output_csv to golden_csv row-by-row on key_column,
-    computing accuracy for all other columns.
-    """
+
     # Load data
     df_out = pd.read_csv(output_csv)
     df_gold = pd.read_csv(golden_csv)

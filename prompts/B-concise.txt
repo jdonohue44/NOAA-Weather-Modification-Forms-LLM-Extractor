@@ -1,4 +1,3 @@
-"""
 Extract the following fields from these NOAA Weather Modification reports (filename, and extracted PDF text provided). Use both to resolve contradictions and make reasonable inferences when information is implicit:
 
 1. START DATE FOR WEATHER MODIFICATION ACTIVITY: [mm/dd/yyyy]
@@ -12,4 +11,3 @@ Extract the following fields from these NOAA Weather Modification reports (filen
 9. PURPOSE OF PROJECT OR ACTIVITY: [project goal]
 
 Return only the extracted values without commentary. Leave fields blank if truly unknowable.
-"""

@@ -1,6 +1,7 @@
 python-dotenv
-pymupdf4llm
 pymupdf
 pytesseract
 pdf2image
 openai
+llmwhisperer-client
+pandas
