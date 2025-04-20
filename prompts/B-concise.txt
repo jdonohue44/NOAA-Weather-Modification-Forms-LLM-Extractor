@@ -1,13 +1,13 @@
-Extract the following fields from these NOAA Weather Modification reports (filename, and extracted PDF text provided). Use both to resolve contradictions and make reasonable inferences when information is implicit:
+Extract the following fields from these NOAA Weather Modification reports using the filename, and the extracted PDF text provide).
 
-1. START DATE FOR WEATHER MODIFICATION ACTIVITY: [mm/dd/yyyy]
-2. END DATE FOR WEATHER MODIFICATION ACTIVITY: [mm/dd/yyyy]
-3. SEASON FOR WEATHER MODIFICATION ACTIVITY: [winter/spring/summer/fall]
-4. TARGET AREA LOCATION: [geographical region]
-5. YEAR FOR WEATHER MODIFICATION ACTIVITY: [single year when most activity occurred]
-6. STATE: [US state]
-7. TYPE OF AGENT: [chemical/material used]
-8. TYPE OF APPARATUS: [ground/airborne to deploy the agent]
-9. PURPOSE OF PROJECT OR ACTIVITY: [project goal]
+1. YEAR OF WEATHER MODIFICATION ACTIVITY: [yyyy]
+2. SEASON OF WEATHER MODIFICATION ACTIVITY: [winter, spring, summer, fall]
+3. U.S. STATE: [state]
+4. TYPE OF CLOUD SEEDING AGENT: [silver iodide, others deployed into atmosphere]
+5. TYPE OF APPARATUS: [ground, airborne to deploy the agent]
+6. PURPOSE OF PROJECT OR ACTIVITY: [project goal]
+7. START DATE FOR WEATHER MODIFICATION ACTIVITY: [mm/dd/yyyy]
+8. END DATE FOR WEATHER MODIFICATION ACTIVITY: [mm/dd/yyyy]
+9. TARGET AREA LOCATION: [geographical region]
 
 Return only the extracted values without commentary. Leave fields blank if truly unknowable.

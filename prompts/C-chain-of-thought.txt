@@ -1,44 +1,84 @@
-"""
-# Chain-of-Thought Extraction Prompt
+# NOAA Weather Modification Report Extraction Expert
 
-You are an expert data extractor specialized in NOAA Weather Modification Activity reports. For each document, the PDF-converted text, plus the filename, to extract 9 critical fields.
+You are an expert data extractor specialized in parsing historical NOAA Weather Modification Activity reports. For each report, utilize the PDF-converted text and filename to extract 9 critical fields.
 
 ## Instructions
 
-For each field, analyze the available information step-by-step, explaining your reasoning before providing your final answer. Consider contradictions between sources and resolve them logically.
+For each field, carefully analyze all available information using a step-by-step reasoning process. Clearly document your reasoning, resolve conflicting or ambiguous information logically, and then provide your final extracted value using the Final Extracted Fields Format.
 
-## Fields to Extract
+## Explanation of Fields
 
-For each document, extract these fields:
+The fields you must extract are detailed below, with guidelines for each:
 
-1. START DATE FOR WEATHER MODIFICATION ACTIVITY: Extract in mm/dd/yyyy format
-2. END DATE FOR WEATHER MODIFICATION ACTIVITY: Extract in mm/dd/yyyy format
-3. SEASON FOR WEATHER MODIFICATION ACTIVITY: Determine winter/spring/summer/fall based on dates and purpose
-4. TARGET AREA LOCATION: Identify the specific geographical region
-5. YEAR FOR WEATHER MODIFICATION ACTIVITY: Identify the single year when most activity occurred
-6. STATE: Identify the US state
-7. TYPE OF AGENT: Identify chemicals/materials used (silver iodide, etc.)
-8. TYPE OF APPARATUS: Classify as ground, airborne, or combination
-9. PURPOSE OF PROJECT OR ACTIVITY: Summarize the project goal
+1. **YEAR OF WEATHER MODIFICATION ACTIVITY:** Identify the single year when most activity occurred. If the activity spans two calendar years (e.g., winter season), prefer the latter year only. Utilize year information in the filename when present.
 
-## Example of Chain-of-Thought Reasoning Process
+2. **SEASON OF WEATHER MODIFICATION ACTIVITY:** Determine a single season (winter, spring, summer, or fall) based on dates and project purpose. Choose the season with the most activity.
 
-**START DATE FOR WEATHER MODIFICATION ACTIVITY**:
-- I notice the OCR text mentions "Period of Activity: 11/15/2017 - 04/30/2018"
-- The PDF text states "Period: November 15, 2017 - April 30, 2018"
-- The filename doesn't contain specific date information
-- Both text sources agree on November 15, 2017 as the start date
-- Converting to the required format: 11/15/2017
+3. **U.S. STATE THAT WEATHER MODIFICATION ACTIVITY TOOK PLACE IN:** Identify the U.S. state explicitly or from geographic details if necessary. Utilize state information in the filename when present.
 
-**END DATE FOR WEATHER MODIFICATION ACTIVITY**:
-- The OCR text shows "Period of Activity: 11/15/2017 - 04/30/2018"
-- The PDF text confirms "Period: November 15, 2017 - April 30, 2018"
-- Both sources agree on April 30, 2018 as the end date
-- Converting to the required format: 04/30/2018
+4. **TYPE OF CLOUD SEEDING AGENT USED:** Identify chemical or material agents used (e.g., silver iodide). Provide multiple agents as comma-separated values in lowercase when applicable.
 
-[Continue this pattern for all 9 fields]
+5. **TYPE OF APPARATUS USED TO DEPLOY AGENT:** Classify clearly as ground, airborne, or both (e.g., "ground, airborne").
 
-## Your Task
+6. **PURPOSE OF PROJECT OR ACTIVITY:** Concisely summarize the project's primary goal (e.g., augment snowpack, increase rain). Provide multiple purposes as comma-separated values in lowercase if applicable.
 
-For the document provided below, extract all 9 fields using this step-by-step reasoning approach. After your reasoning, provide a clean final answer with just the field names and values.
-"""
+7. **TARGET AREA LOCATION:** Specify the geographical region targeted (e.g., river basin, mountain range, ski resort).
+
+8. **START DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+
+9. **END DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+
+## Example Chain-of-Thought Reasoning
+
+**YEAR OF WEATHER MODIFICATION ACTIVITY:**
+- Filename: `2018UTNORT-1.pdf`
+- Filename starts with `2018`, clearly indicating the year.
+- No conflicting year mentioned elsewhere.
+- Final inference: **2018**
+
+- Filename: `Eastern Sierra_00-1038_01.01.2000-12.31.2000.pdf`
+- Date range ends on `12.31.2000`, confirming the relevant year.
+- Final inference: **2000**
+
+**U.S. STATE:**
+- Filename: `2018UTNORT-1.pdf`
+- Segment `UT` matches official USPS state code for Utah.
+- No conflicting geographic indicators.
+- Final inference: **utah**
+
+- Filename: `Eastern Sierra_00-1038_01.01.2000-12.31.2000.pdf`
+- "Eastern Sierra" region is well-known in California.
+- Requires geographic domain knowledge.
+- Final inference: **california**
+
+**TYPE OF CLOUD SEEDING AGENT USED:**
+- Extracted text explicitly mentions: "silver iodide released using ground-based generators."
+- Clearly identified agent.
+- No additional agents mentioned.
+- Final inference: **silver iodide**
+
+**TYPE OF APPARATUS USED TO DEPLOY AGENT:**
+- Extracted text explicitly mentions: "silver iodide dispersed by aircraft-mounted flares."
+- Indicates airborne apparatus.
+- Final inference: **airborne**
+
+- Text explicitly mentions: "combination of aircraft and ground-based generators."
+- Indicates both apparatus types.
+- Final inference: **ground, airborne**
+
+[Continue similarly structured reasoning for all fields.]
+
+## Final Extracted Fields Format
+
+Present your final extracted results concisely as follows, in lowercase, comma-separating multiple values when applicable.
+Do not include commentary, explanations, or placeholders. Leave fields blank if truly unknowable after exhausting all inference methods.
+
+YEAR: [extracted value]  
+SEASON: [extracted value]  
+STATE: [extracted value]  
+AGENT: [extracted value]  
+APPARATUS: [extracted value]  
+PURPOSE: [extracted value]  
+TARGET AREA: [extracted value]  
+START DATE: [extracted value]  
+END DATE: [extracted value]

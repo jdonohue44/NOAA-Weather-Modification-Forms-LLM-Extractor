@@ -2,16 +2,20 @@ import os
 import random
 import shutil
 
-# Parameters
-source_dir = '../noaa-files'
-target_dir = '../accuracy-evals/golden-10'
-N = 10  # Change this number to sample a different number of files
+source_dir = '../../noaa-files'
+target_dir = '../../accuracy-evals/golden-150'
+existing_dir = '../../accuracy-evals/golden-50'
+N = 150
 
 # Ensure target directory exists
 os.makedirs(target_dir, exist_ok=True)
 
-# List all files in the source directory
-all_files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
+# Get files already in the existing directory
+existing_files = set(os.listdir(existing_dir))
+
+# List all files in the source directory excluding those already in existing_dir
+all_files = [f for f in os.listdir(source_dir)
+             if os.path.isfile(os.path.join(source_dir, f)) and f not in existing_files]
 
 # Sample N files
 sampled_files = random.sample(all_files, min(N, len(all_files)))

@@ -58,14 +58,6 @@ def save_to_csv(results, output_file, fieldnames):
             writer.writeheader()
         writer.writerows(results)
 
-# def save_method_counts(counter, file_path):
-#     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-#     with open(file_path, "w") as f:
-#         f.write("PDF extraction methods used:\n")
-#         for method, count in counter.items():
-#             f.write(f"{method}: {count}\n")
-#     print(f"Method counts saved to {file_path}")
-
 def save_method_counts(counter, file_path):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, "a") as f:
@@ -141,15 +133,15 @@ def parse_gpt_response(response_text):
     }
     
     keyword_mapping = {
-        'year of weather modification activity': 'year',
-        'season of weather modification activity': 'season',
-        'u.s. state that weather modification activity is taking place': 'state',
-        'type of cloud seeding agent': 'agent',
-        'type of apparatus': 'apparatus',
-        'purpose of project or activity': 'purpose',
-        'target area location': 'target_area',
-        'start date of weather modification activity': 'start_date',
-        'end date of weather modification activity': 'end_date'
+        'year': 'year',
+        'season': 'season',
+        'state': 'state',
+        'agent': 'agent',
+        'apparatus': 'apparatus',
+        'purpose': 'purpose',
+        'target area': 'target_area',
+        'start date': 'start_date',
+        'end date': 'end_date'
     }
 
     lines = response_text.split('\n')
@@ -217,7 +209,6 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
     
     # DEBUG LLM RESPONSE
     # print(response_text)
-    # sys.exit()
 
     # STEP 3: PARSE LLM RESPONSE INTO STRUCTURED DATA
     parsed_data = parse_gpt_response(response_text)
@@ -232,10 +223,13 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
 def main():
     # FILE SYSTEM
     input_directory = "../accuracy-evals/golden-50"
-    output_file = f"../dataset/test/golden-50-gpt-4.1-mini-prompt-A.csv"
+    output_file = f"../dataset/test/golden-50-o3-prompt-C.csv"
     checkpoint_file = "../dataset/test/processed_files.txt"
     processed_files = load_processed_files(checkpoint_file)
-    all_files = [f for f in os.listdir(input_directory) if os.path.isfile(os.path.join(input_directory, f))]
+    all_files = [
+        f for f in os.listdir(input_directory)
+        if os.path.isfile(os.path.join(input_directory, f)) and f.lower().endswith('.pdf')
+    ]
     files_to_process = [f for f in all_files if f not in processed_files]
     fieldnames = [
         'filename', 
@@ -255,83 +249,96 @@ def main():
     api_key = os.getenv("OPENAI_API_KEY")
     gpt_client = OpenAI(api_key=api_key)
 
-    # llm_variant = 'gpt-4o-mini' 
-    llm_variant = 'gpt-4.1-mini'
-
-    # llm_variant = 'o3-mini'
+    # llm_variant = 'gpt-4.1' # BEST SO FAR
+    # llm_variant = 'gpt-4.1-mini'
     # llm_variant = 'o4-mini'
-    
-    # llm_variant = 'gpt-4o' 
-    # llm_variant = 'gpt-4.1' 
+    llm_variant = 'o3' 
 
     llm_prompt = f"""
 # NOAA Weather Modification Report Extraction Expert
-You are specialized in extracting structured data from NOAA Weather Modification Activity reports with high precision. 
-Your task is to extract 9 specific fields about the weather modification project.
 
-## Input Sources
-You will be given:
-1. Filename of Weather Modification Report, which will contain year, state, and geographic identifiers.
-2. Extracted PDF text of the Weather Modification Report. 
+You are an expert data extractor specialized in parsing historical NOAA Weather Modification Activity reports. For each report, utilize the PDF-converted text and filename to extract 9 critical fields.
 
-## Required Output Fields
-Extract these nine fields precisely and ensure values are lowercase, comma-separated if multiple (e.g. "silver iodide, carbon dioxide"): 
+## Instructions
 
-1. YEAR OF WEATHER MODIFICATION ACTIVITY
-2. SEASON OF WEATHER MODIFICATION ACTIVITY
-3. U.S. STATE THAT WEATHER MODIFICATION ACTIVITY IS TAKING PLACE
-4. TYPE OF CLOUD SEEDING AGENT
-5. TYPE OF APPARATUS
-6. PURPOSE OF PROJECT OR ACTIVITY
-7. TARGET AREA LOCATION
-8. START DATE OF WEATHER MODIFICATION ACTIVITY
-9. END DATE OF WEATHER MODIFICATION ACTIVITY
+For each field, carefully analyze all available information using a step-by-step reasoning process. Clearly document your reasoning, resolve conflicting or ambiguous information logically, and then provide your final extracted value using the Final Extracted Fields Format.
 
-## Extraction Guidelines
-1. Cross-validate information in the report using DESCRIPTION OF WEATHER MODIFICATION APPARATUS, MODIFICATION AGENTS AND THEIR DISPERSAL RATES, TECHNIQUES EMPLOYED, ETC.
-2. Use the filename to infer YEAR and STATE information. For example:
-   - 2018UTNORT-1.pdf >>> 2018, Utah
-   - 2019COCMRB_CenCOMtnRvrBasings17-4.pdf >>> 2019, Colorado
-   - 2017IDCCSN[17-1691]ClarkCo_noaa17-18.pdf >>> 2017, Idaho
-   - Boise River, Idaho_07-1382_11.01.2007-03.31.2008.pdf >>> 2008, Idaho
-   - San Joaquin River_05-1278_01.01.2005-12.31.2005.pdf >>> 2005, California
-   - Eastern Sierra_00-1038_01.01.2000-12.31.2000.pdf >>> 2000, California
-   - Kings River_06-1327_01.01.2006-12.31.2006.pdf >>> 2006, California
-2. For dates:
-   - Convert all formats to mm/dd/yyyy
-   - When only partial dates appear, infer missing components from context
-   - Fiscal years should be converted to calendar date ranges
-3. For season determination:
-   - winter: Dec-Feb (snow augmentation, etc.)
-   - spring: Mar-May (flood mitigation, agriculture)
-   - summer: Jun-Aug (hail suppression, rainfall enhancement)
-   - fall: Sep-Nov (reservoir recharge, etc.)
-4. For agent classification:
-   - Primary: silver iodide, sodium chloride
-5. For apparatus classification:
-   - ground: generators, flares, or dispensers at fixed locations
-   - airborne: aircraft-mounted equipment, often flares
-   - ground, airborne: when both methods are employed
-6. Target area specificity:
-   - Include watershed names, mountain ranges, counties, or water bodies
-   - Exclude NOAA headquarters addresses (Silver Spring, MD) or operator addresses
+## Explanation of Fields
 
-## Response Format
-Return only the extracted field values in a clean key-value format without explanations, uncertainties, or placeholders.
-Ensure values are lowercase.
-Comma-separate multiple values (e.g. "silver iodide, carbon dioxide"), (e.g. "augment snowpack, increase rain"), (e.g. "ground, airborne").
+The fields you must extract are detailed below, with guidelines for each:
 
-YEAR OF WEATHER MODIFICATION ACTIVITY: [extracted value]
-SEASON OF WEATHER MODIFICATION ACTIVITY: [extracted value]
-U.S. STATE THAT WEATHER MODIFICATION ACTIVITY IS TAKING PLACE: [extracted value]
-TYPE OF CLOUD SEEDING AGENT: [extracted value]
-TYPE OF APPARATUS: [extracted value]
-PURPOSE OF PROJECT OR ACTIVITY: [extracted value]
-TARGET AREA LOCATION: [extracted value]
-START DATE OF WEATHER MODIFICATION ACTIVITY: [extracted value]
-END DATE OF WEATHER MODIFICATION ACTIVITY: [extracted value]
+1. **YEAR OF WEATHER MODIFICATION ACTIVITY:** Identify the single year when most activity occurred. If the activity spans two calendar years (e.g., winter season), prefer the latter year only. Utilize year information in the filename when present.
 
-Return only the 9 fields above. Do not include commentary, explanations, or placeholders. Leave fields blank if truly unknowable after exhausting all inference methods.
+2. **SEASON OF WEATHER MODIFICATION ACTIVITY:** Determine a single season (winter, spring, summer, or fall) based on dates and project purpose. Choose the season with the most activity.
+
+3. **U.S. STATE THAT WEATHER MODIFICATION ACTIVITY TOOK PLACE IN:** Identify the U.S. state explicitly or from geographic details if necessary. Utilize state information in the filename when present.
+
+4. **TYPE OF CLOUD SEEDING AGENT USED:** Identify chemical or material agents used (e.g., silver iodide). Provide multiple agents as comma-separated values in lowercase when applicable.
+
+5. **TYPE OF APPARATUS USED TO DEPLOY AGENT:** Classify clearly as ground, airborne, or both (e.g., "ground, airborne").
+
+6. **PURPOSE OF PROJECT OR ACTIVITY:** Concisely summarize the project's primary goal (e.g., augment snowpack, increase rain). Provide multiple purposes as comma-separated values in lowercase if applicable.
+
+7. **TARGET AREA LOCATION:** Specify the geographical region targeted (e.g., river basin, mountain range, ski resort).
+
+8. **START DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+
+9. **END DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+
+## Example Chain-of-Thought Reasoning
+
+**YEAR OF WEATHER MODIFICATION ACTIVITY:**
+- Filename: `2018UTNORT-1.pdf`
+- Filename starts with `2018`, clearly indicating the year.
+- No conflicting year mentioned elsewhere.
+- Final inference: **2018**
+
+- Filename: `Eastern Sierra_00-1038_01.01.2000-12.31.2000.pdf`
+- Date range ends on `12.31.2000`, confirming the relevant year.
+- Final inference: **2000**
+
+**U.S. STATE:**
+- Filename: `2018UTNORT-1.pdf`
+- Segment `UT` matches official USPS state code for Utah.
+- No conflicting geographic indicators.
+- Final inference: **utah**
+
+- Filename: `Eastern Sierra_00-1038_01.01.2000-12.31.2000.pdf`
+- "Eastern Sierra" region is well-known in California.
+- Requires geographic domain knowledge.
+- Final inference: **california**
+
+**TYPE OF CLOUD SEEDING AGENT USED:**
+- Extracted text explicitly mentions: "silver iodide released using ground-based generators."
+- Clearly identified agent.
+- No additional agents mentioned.
+- Final inference: **silver iodide**
+
+**TYPE OF APPARATUS USED TO DEPLOY AGENT:**
+- Extracted text explicitly mentions: "silver iodide dispersed by aircraft-mounted flares."
+- Indicates airborne apparatus.
+- Final inference: **airborne**
+
+- Text explicitly mentions: "combination of aircraft and ground-based generators."
+- Indicates both apparatus types.
+- Final inference: **ground, airborne**
+
+[Continue similarly structured reasoning for all fields.]
+
+## Final Extracted Fields Format
+
+Present your final extracted results concisely as follows, in lowercase, comma-separating multiple values when applicable.
+Do not include commentary, explanations, or placeholders. Leave fields blank if truly unknowable after exhausting all inference methods.
+
+YEAR: [extracted value]  
+SEASON: [extracted value]  
+STATE: [extracted value]  
+AGENT: [extracted value]  
+APPARATUS: [extracted value]  
+PURPOSE: [extracted value]  
+TARGET AREA: [extracted value]  
+START DATE: [extracted value]  
+END DATE: [extracted value]
 """
     
     # LLM Whisperer Client

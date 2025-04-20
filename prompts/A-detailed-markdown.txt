@@ -51,7 +51,8 @@ Extract these nine fields precisely and ensure values are lowercase, comma-separ
 
 ## Response Format
 Return only the extracted field values in a clean key-value format without explanations, uncertainties, or placeholders.
-Ensure values are lowercase, comma-separated if multiple (e.g. "silver iodide, carbon dioxide").
+Ensure values are lowercase.
+Comma-separate multiple values (e.g. "silver iodide, carbon dioxide"), (e.g. "augment snowpack, increase rain"), (e.g. "ground, airborne").
 
 YEAR OF WEATHER MODIFICATION ACTIVITY: [extracted value]
 SEASON OF WEATHER MODIFICATION ACTIVITY: [extracted value]
