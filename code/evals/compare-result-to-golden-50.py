@@ -1,6 +1,6 @@
 import pandas as pd
 
-result = '../../dataset/test/golden-50-o3-prompt-C.csv'
+result = '../../dataset/test/golden-50-gpt-4o-mini-prompt-C.csv'
 golden = '../../accuracy-evals/golden-50.csv'
 key = 'filename'
 
