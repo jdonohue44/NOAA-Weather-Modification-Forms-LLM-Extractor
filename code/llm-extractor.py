@@ -27,7 +27,7 @@ FORM_17_4_KEY_PHRASES = [
     "initial report on weather modification",
     "project or activity designation",
     "purpose of project",
-    "target",
+    "target area",
     "dates of project",
     "description of weather modification"
 ]
@@ -222,9 +222,9 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
 
 def main():
     # FILE SYSTEM
-    input_directory = "../accuracy-evals/golden-50"
-    output_file = f"../dataset/test/golden-50-gpt-4.1-prompt-C.csv"
-    checkpoint_file = "../dataset/test/processed_files.txt"
+    input_directory = "../noaa-files"
+    output_file = f"../dataset/final/cloud_seeding_us_2000_2025.csv"
+    checkpoint_file = "../dataset/final/processed_files.txt"
     processed_files = load_processed_files(checkpoint_file)
     all_files = [
         f for f in os.listdir(input_directory)
@@ -252,9 +252,9 @@ def main():
     # ORDERED FROM CHEAPEST TO MOST EXPENSIVE
     # llm_variant = 'gpt-4o-mini' # 86.67%
     # llm_variant = 'gpt-4.1-mini' # 83.67%
-    # llm_variant = 'o4-mini' # 88.00%
+    llm_variant = 'o4-mini' # 88.00% (BEST BANG FOR BUCK) (~$0.005/document)
     # llm_variant = 'gpt-4.1' # 88.33%
-    # llm_variant = 'o3' # 90.33% (BEST)
+    # llm_variant = 'o3' # 90.33% (BEST) (MOST EXPENSIVE ~$0.05/document)
 
     llm_prompt = f"""
 # NOAA Weather Modification Report Extraction Expert
@@ -325,7 +325,7 @@ The fields you must extract are detailed below, with guidelines for each:
 - Indicates both apparatus types.
 - Final inference: **ground, airborne**
 
-[Continue similarly structured reasoning for all fields.]
+[Continue using similarly structured reasoning for all fields]
 
 ## Final Extracted Fields Format
 

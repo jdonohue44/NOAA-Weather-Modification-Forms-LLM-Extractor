@@ -1,7 +1,8 @@
 import pandas as pd
 
-result = '../../dataset/test/golden-50-gpt-4o-mini-prompt-C.csv'
-golden = '../../accuracy-evals/golden-50.csv'
+
+result = '../../dataset/test/golden-200-o4-mini-prompt-C.csv'
+golden = '../../accuracy-evals/golden-200.csv'
 key = 'filename'
 
 def compute_field_accuracy(output_csv: str,
@@ -54,7 +55,7 @@ def compute_field_accuracy(output_csv: str,
     for field in fields:
         if field == "purpose":
             # Keyword-based fuzzy match
-            keywords = ["snow", "snowpack", "snowfall", "rain", "precipication", "fog", "hail", "runoff"]
+            keywords = ["snow", "snowpack", "snowfall", "rain", "precipication", "fog", "hail", "runoff", "research", "rainfall"]
             
             def has_overlap(out_val, gold_val):
                 out_keywords = {k for k in keywords if k in out_val}
@@ -69,14 +70,15 @@ def compute_field_accuracy(output_csv: str,
             accuracy = sum(matches) / total if total else 0
             accuracies[field] = accuracy
 
-            print(f"  -{field:20s}: {accuracy:.2%}")
+            print(f"\n  -{field:20s}: {accuracy:.2%}")
 
-            # if accuracy < 1.0:
-            #     print(f"    ↪ Fuzzy mismatches in '{field}':")
-            #     for i, match in enumerate(matches):
-            #         if not match and i < 5:
-            #             fname = common[i]
-            #             print(f"      - {fname} → output: '{df_out.iloc[i][field]}', golden: '{df_gold.iloc[i][field]}'")
+            # PURPOSE - SHOW FUZZY MISMATCHES
+            if accuracy < 1.0:
+                print(f"    ↪ Fuzzy mismatches in '{field}':")
+                for i, match in enumerate(matches):
+                    if not match:
+                        fname = common[i]
+                        print(f"      - {fname} → output: '{df_out.iloc[i][field]}', golden: '{df_gold.iloc[i][field]}'")
 
         elif field == "agent":
             # Keyword-based fuzzy match
@@ -95,7 +97,15 @@ def compute_field_accuracy(output_csv: str,
             accuracy = sum(matches) / total if total else 0
             accuracies[field] = accuracy
 
-            print(f"  -{field:20s}: {accuracy:.2%}")
+            print(f"\n  -{field:20s}: {accuracy:.2%}")
+
+            # AGENT TYPE - SHOW FUZZY MISMATCHES
+            if accuracy < 1.0:
+                print(f"    ↪ Fuzzy mismatches in '{field}':")
+                for i, match in enumerate(matches):
+                    if not match:
+                        fname = common[i]
+                        print(f"      - {fname} → output: '{df_out.iloc[i][field]}', golden: '{df_gold.iloc[i][field]}'")
 
         else:
             out_vals = df_out[field].astype(str).str.strip().str.lower().fillna("")
@@ -104,19 +114,19 @@ def compute_field_accuracy(output_csv: str,
             accuracy = matches.sum() / total if total else 0
             accuracies[field] = accuracy
 
-            print(f"  -{field:20s}: {accuracy:.2%}")
+            print(f"\n  -{field:20s}: {accuracy:.2%}")
 
-        # Optional: show a few mismatches
-        # if accuracy < 1.0:
-        #     mismatched = matches[~matches]
-        #     if not mismatched.empty:
-        #         print(f"Mismatches in '{field}':")
-        #         diff_df = pd.DataFrame({
-        #             'output': df_out[field],
-        #             'golden': df_gold[field],
-        #             'match': matches
-        #         }).loc[~matches]
-        #         print(diff_df.head(5).to_string(index=True))
+            # SHOW MISMATCHES 
+            if accuracy < 1.0:
+                mismatched = matches[~matches]
+                if not mismatched.empty:
+                    print(f"Mismatches in '{field}':")
+                    diff_df = pd.DataFrame({
+                        'output': df_out[field],
+                        'golden': df_gold[field],
+                        'match': matches
+                    }).loc[~matches]
+                    print(diff_df.to_string(index=True))
 
     overall = sum(accuracies.values()) / len(accuracies) if accuracies else 0.0
     print(f"\nOverall average accuracy: {overall:.2%}\n")
