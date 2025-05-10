@@ -1,5 +1,6 @@
 # === MAIN LLM EXTRACTOR FILE === 
 # This file reads all NOAA files, processes them in batches, and saves progress.
+import random 
 
 # File System
 import os
@@ -177,8 +178,8 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
         return None
 
     # DEBUG PDF TEXT
-    # print(pdf_text)
-    # sys.exit()
+    print(pdf_text)
+    sys.exit()
 
     # STEP 2: CALL OPEN AI TO EXTRACT KEY INFORMATION
     retries = 2
@@ -348,8 +349,13 @@ END DATE: [extracted value]
 
     # MAIN LOOP
     results = []
-    for i, file in enumerate(files_to_process, 1):
+
+    num_files = 5
+    random_files = random.sample(files_to_process, min(num_files, len(files_to_process)))
+    for file in random_files:
         full_path = os.path.join(input_directory, file)
+    # for i, file in enumerate(files_to_process, 1):
+    #     full_path = os.path.join(input_directory, file)
         try:
             result = process_file(file, full_path, llm_whisper_client, gpt_client, llm_variant, llm_prompt)
             if result:
