@@ -25,12 +25,18 @@ method_counter = Counter()
 
 # Form 17-4 Key Phrases
 FORM_17_4_KEY_PHRASES = [
-    "initial report on weather modification",
+    "initial report on weather modification activities",
     "project or activity designation",
-    "purpose of project",
+    "purpose of project or activity",
+    "sponsor",
     "target area",
+    "control area",
     "dates of project",
-    "description of weather modification"
+    "date first actual weather modification",
+    "expected termination date of weather modification",
+    "description of weather modification",
+    "operator",
+    "affiliation"
 ]
 
 def select_all_files(directory_path):
@@ -122,25 +128,31 @@ def extract_pdf_text(file_path, llm_whisper_client):
 
 def parse_gpt_response(response_text):
     data = {
+        'project': '',
         'year': '',
         'season': '',
         'state': '',
+        'operator_affiliation': '',
         'agent': '',
         'apparatus': '',
         'purpose': '',
         'target_area': '',
+        'control_area': '',
         'start_date': '',
         'end_date': ''
     }
     
     keyword_mapping = {
+        'project': 'project',
         'year': 'year',
         'season': 'season',
         'state': 'state',
+        'operator affiliation': 'operator_affiliation',
         'agent': 'agent',
         'apparatus': 'apparatus',
         'purpose': 'purpose',
         'target area': 'target_area',
+        'control area': 'control_area',
         'start date': 'start_date',
         'end date': 'end_date'
     }
@@ -178,8 +190,7 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
         return None
 
     # DEBUG PDF TEXT
-    print(pdf_text)
-    sys.exit()
+    # print(pdf_text)
 
     # STEP 2: CALL OPEN AI TO EXTRACT KEY INFORMATION
     retries = 2
@@ -217,15 +228,14 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
     
     # DEBUG PARSED DATA
     # print(parsed_data)
-    # sys.exit()
 
     return parsed_data
 
 def main():
     # FILE SYSTEM
-    input_directory = "../noaa-files"
-    output_file = f"../dataset/final/cloud_seeding_us_2000_2025.csv"
-    checkpoint_file = "../dataset/final/processed_files.txt"
+    input_directory = "../accuracy-evals/golden-150/"
+    output_file = f"../dataset/test/july-golden-150-o3.csv"
+    checkpoint_file = "../dataset/test/july-golden-150-processed_files.txt"
     processed_files = load_processed_files(checkpoint_file)
     all_files = [
         f for f in os.listdir(input_directory)
@@ -234,13 +244,16 @@ def main():
     files_to_process = [f for f in all_files if f not in processed_files]
     fieldnames = [
         'filename', 
+        'project', 
         'year', 
         'season', 
         'state', 
+        'operator_affiliation',
         'agent', 
         'apparatus', 
         'purpose', 
         'target_area', 
+        'control_area', 
         'start_date', 
         'end_date'
     ]
@@ -250,12 +263,12 @@ def main():
     api_key = os.getenv("OPENAI_API_KEY")
     gpt_client = OpenAI(api_key=api_key)
 
-    # ORDERED FROM CHEAPEST TO MOST EXPENSIVE
-    # llm_variant = 'gpt-4o-mini' # 86.67%
-    # llm_variant = 'gpt-4.1-mini' # 83.67%
-    llm_variant = 'o4-mini' # 88.00% (BEST BANG FOR BUCK) (~$0.005/document)
-    # llm_variant = 'gpt-4.1' # 88.33%
-    # llm_variant = 'o3' # 90.33% (BEST) (MOST EXPENSIVE ~$0.05/document)
+    # ORDERED BY PERFORMANCE (notes on cost)
+    # llm_variant = 'gpt-4o-mini' # 91.67% accuracy
+    # llm_variant = 'gpt-4.1-mini' # 93.33% accuracy
+    # llm_variant = 'gpt-4.1' # 93.33% accuracy
+    # llm_variant = 'o4-mini' # 95.00% accuracy (BEST VALUE) (~$0.005 per document)
+    llm_variant = 'o3' # 96.33% accuracy (BEST) (~$0.01 per document)
 
     llm_prompt = f"""
 # NOAA Weather Modification Report Extraction Expert
@@ -270,23 +283,29 @@ For each field, carefully analyze all available information using a step-by-step
 
 The fields you must extract are detailed below, with guidelines for each:
 
-1. **YEAR OF WEATHER MODIFICATION ACTIVITY:** Identify the single year when most activity occurred. If the activity spans two calendar years (e.g., winter season), prefer the latter year only. Utilize year information in the filename when present.
+1. **PROJECT OR ACTIVITY DESIGNATION:** Identify the project name (e.g., Kern River Cloud Seeding Program, South Texas Weather Modification Association).
 
-2. **SEASON OF WEATHER MODIFICATION ACTIVITY:** Determine a single season (winter, spring, summer, or fall) based on dates and project purpose. Choose the season with the most activity.
+2. **YEAR OF WEATHER MODIFICATION ACTIVITY:** Identify the single year when most activity occurred. If the activity spans two calendar years (e.g., winter season), prefer the latter year only. Utilize year information in the filename when present.
 
-3. **U.S. STATE THAT WEATHER MODIFICATION ACTIVITY TOOK PLACE IN:** Identify the U.S. state explicitly or from geographic details if necessary. Utilize state information in the filename when present.
+3. **SEASON OF WEATHER MODIFICATION ACTIVITY:** Determine a single season (winter, spring, summer, or fall) based on project dates, project purpose, and type of agent used. Choose the single season with the most activity.
 
-4. **TYPE OF CLOUD SEEDING AGENT USED:** Identify chemical or material agents used (e.g., silver iodide). Provide multiple agents as comma-separated values in lowercase when applicable.
+4. **U.S. STATE THAT WEATHER MODIFICATION ACTIVITY TOOK PLACE IN:** Identify the U.S. state explicitly or from geographic details if necessary. Utilize state information in the filename when present.
 
-5. **TYPE OF APPARATUS USED TO DEPLOY AGENT:** Classify clearly as ground, airborne, or both (e.g., "ground, airborne").
+5. **OPERATOR AFFILIATION:** Identify the operator affiliation who carried out the project (e.g. North American Weather Consultants, Weather Modification LLC, Western Weather Consultants). Never include peoples' real names.
 
-6. **PURPOSE OF PROJECT OR ACTIVITY:** Concisely summarize the project's primary goal (e.g., augment snowpack, increase rain). Provide multiple purposes as comma-separated values in lowercase if applicable.
+6. **TYPE OF CLOUD SEEDING AGENT USED:** Identify chemical or material agents used (e.g., silver iodide). Provide multiple agents as comma-separated values in lowercase when applicable.
 
-7. **TARGET AREA LOCATION:** Specify the geographical region targeted (e.g., river basin, mountain range, ski resort).
+7. **TYPE OF APPARATUS USED TO DEPLOY AGENT:** Classify clearly as ground, airborne, or both (e.g., "ground, airborne").
 
-8. **START DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+8. **PURPOSE OF PROJECT OR ACTIVITY:** Concisely summarize the project's primary goal (e.g., augment snowpack, increase rain). Provide multiple purposes as comma-separated values in lowercase if applicable.
 
-9. **END DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+9. **TARGET AREA LOCATION:** Specify the geographical region targeted (e.g., river basin, mountain range, ski resort).
+
+10. **CONTROL AREA LOCATION:** Specify the geographical region used as scientific control (e.g., river basin, mountain range, ski resort). Leave blank if not found, or marked as "none" or "NA".
+
+11. **START DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+
+12. **END DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
 
 ## Example Chain-of-Thought Reasoning
 
@@ -333,13 +352,16 @@ The fields you must extract are detailed below, with guidelines for each:
 Present your final extracted results concisely as follows, in lowercase, comma-separating multiple values when applicable.
 Do not include commentary, explanations, or placeholders. Leave fields blank if truly unknowable after exhausting all inference methods.
 
+PROJECT: [extracted value]
 YEAR: [extracted value]  
 SEASON: [extracted value]  
 STATE: [extracted value]  
+OPERATOR AFFILIATION: [extracted value]  
 AGENT: [extracted value]  
 APPARATUS: [extracted value]  
 PURPOSE: [extracted value]  
 TARGET AREA: [extracted value]  
+CONTROL AREA: [extracted value]  
 START DATE: [extracted value]  
 END DATE: [extracted value]
 """
@@ -350,12 +372,12 @@ END DATE: [extracted value]
     # MAIN LOOP
     results = []
 
-    num_files = 5
-    random_files = random.sample(files_to_process, min(num_files, len(files_to_process)))
-    for file in random_files:
-        full_path = os.path.join(input_directory, file)
-    # for i, file in enumerate(files_to_process, 1):
+    # num_files = 5
+    # random_files = random.sample(files_to_process, min(num_files, len(files_to_process)))
+    # for file in random_files:
     #     full_path = os.path.join(input_directory, file)
+    for i, file in enumerate(files_to_process, 1):
+        full_path = os.path.join(input_directory, file)
         try:
             result = process_file(file, full_path, llm_whisper_client, gpt_client, llm_variant, llm_prompt)
             if result:
@@ -364,7 +386,7 @@ END DATE: [extracted value]
         except Exception as e:
             print(f"Error processing {file}: {e}")
         
-        if i % 5 == 0 or i == len(files_to_process):
+        if i % 3 == 0 or i == len(files_to_process):
             save_to_csv(results, output_file, fieldnames)
             print(f"Saved {i} processed files to {output_file}")
             print(f"PDF extraction methods used: {dict(method_counter)}")
