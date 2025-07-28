@@ -25,17 +25,18 @@ method_counter = Counter()
 
 # Form 17-4 Key Phrases
 FORM_17_4_KEY_PHRASES = [
-    "initial report on weather modification activities",
+    "initial report on weather modification",
     "project or activity designation",
     "purpose of project or activity",
     "sponsor",
+    "operator",
+    "target and control areas",
     "target area",
     "control area",
     "dates of project",
     "date first actual weather modification",
-    "expected termination date of weather modification",
+    "expected termination date",
     "description of weather modification",
-    "operator",
     "affiliation"
 ]
 
@@ -75,15 +76,27 @@ def save_method_counts(counter, file_path):
     print(f"Method counts appended to {file_path}")
 
 
+# def contains_all_phrases(text):
+#     text_lower = text.lower()
+#     return all(phrase in text_lower for phrase in FORM_17_4_KEY_PHRASES)
+
 def contains_all_phrases(text):
     text_lower = text.lower()
-    return all(phrase in text_lower for phrase in FORM_17_4_KEY_PHRASES)
+    missing_phrases = [phrase for phrase in FORM_17_4_KEY_PHRASES if phrase not in text_lower]
+    if missing_phrases:
+        print("Missing phrases:")
+        for phrase in missing_phrases:
+            print(f"  - {phrase}")
+        return False
+    return True
 
 def extract_pdf_text(file_path, llm_whisper_client):
     # PyMuPDF
     try:
         doc = pymupdf.open(file_path)
         text = doc[0].get_text().strip()
+        # DEBUG TEXT LENGTH
+        print(len(text))
         if len(text) > 1000 and contains_all_phrases(text):
             method_counter['pymu'] += 1
             return {'pdf_text': text}
@@ -97,6 +110,8 @@ def extract_pdf_text(file_path, llm_whisper_client):
         images = convert_from_path(file_path, first_page=1, last_page=1)
         if images:
             text = pytesseract.image_to_string(images[0], lang='eng').strip()
+            # DEBUG TEXT LENGTH
+            print(len(text))
             if len(text) > 1000 and contains_all_phrases(text):
                 method_counter['ocr'] += 1
                 return {'pdf_text': text}
@@ -115,6 +130,8 @@ def extract_pdf_text(file_path, llm_whisper_client):
             wait_timeout=200
         )
         text = result['extraction'].get('result_text', '[No result_text found]')
+        # DEBUG TEXT LENGTH
+        print(len(text))
         if len(text) > 500:
             method_counter['llm-whisper'] += 1
             return {'pdf_text': text}
@@ -232,10 +249,12 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
     return parsed_data
 
 def main():
-    # FILE SYSTEM
-    input_directory = "../accuracy-evals/golden-150/"
-    output_file = f"../dataset/test/july-golden-150-o3.csv"
-    checkpoint_file = "../dataset/test/july-golden-150-processed_files.txt"
+    # INPUT FILES
+    input_directory = "../goldens-for-accuracy-evals/golden-noaa-files/golden-200"
+    output_file = "../dataset/test/july/final-7-28-test-july.csv"
+    checkpoint_file = "../dataset/test/july/final_7_28_processed_files_final_test.txt"
+
+    # LOAD NOAA FILES TO PROCESS
     processed_files = load_processed_files(checkpoint_file)
     all_files = [
         f for f in os.listdir(input_directory)
@@ -268,48 +287,59 @@ def main():
     # llm_variant = 'gpt-4.1-mini' # 93.33% accuracy
     # llm_variant = 'gpt-4.1' # 93.33% accuracy
     # llm_variant = 'o4-mini' # 95.00% accuracy (BEST VALUE) (~$0.005 per document)
-    llm_variant = 'o3' # 96.33% accuracy (BEST) (~$0.01 per document)
+    llm_variant = 'o3' # 96.33% accuracy (BEST ACCURACY) (~$0.01 per document)
 
     llm_prompt = f"""
 # NOAA Weather Modification Report Extraction Expert
 
-You are an expert data extractor specialized in parsing historical NOAA Weather Modification Activity reports. For each report, utilize the PDF-converted text and filename to extract 9 critical fields.
+You are an expert data extractor specialized in parsing historical NOAA Weather Modification Activity reports. For each report, utilize the PDF-converted text and filename to extract **12** critical fields.
 
 ## Instructions
 
-For each field, carefully analyze all available information using a step-by-step reasoning process. Clearly document your reasoning, resolve conflicting or ambiguous information logically, and then provide your final extracted value using the Final Extracted Fields Format.
+For each field, carefully analyze all available information using a step-by-step reasoning process. Reason step-by-step internally, using evidence from the filename and report content to resolve conflicting or ambiguous information. 
 
-## Explanation of Fields
+Output only the final extracted fields using the format and rules provided below.
 
-The fields you must extract are detailed below, with guidelines for each:
+## Fields to Extract
 
-1. **PROJECT OR ACTIVITY DESIGNATION:** Identify the project name (e.g., Kern River Cloud Seeding Program, South Texas Weather Modification Association).
+1. **PROJECT OR ACTIVITY DESIGNATION:** Extract the full project name (e.g., kern river cloud seeding program, gunnison river basin cloud seeding program, western uintas cloud seeding program).
 
 2. **YEAR OF WEATHER MODIFICATION ACTIVITY:** Identify the single year when most activity occurred. If the activity spans two calendar years (e.g., winter season), prefer the latter year only. Utilize year information in the filename when present.
 
-3. **SEASON OF WEATHER MODIFICATION ACTIVITY:** Determine a single season (winter, spring, summer, or fall) based on project dates, project purpose, and type of agent used. Choose the single season with the most activity.
+3. **SEASON OF WEATHER MODIFICATION ACTIVITY:** Include the season that the weather modification activity took place (winter, spring, summer, or fall) based on project purpose, dates, and type of agent used. If the project spans multiple seasons, list each comma-separated season in lowercase. Use as minimal a list as possible while maintaining correctness.
 
-4. **U.S. STATE THAT WEATHER MODIFICATION ACTIVITY TOOK PLACE IN:** Identify the U.S. state explicitly or from geographic details if necessary. Utilize state information in the filename when present.
+4. **U.S. STATE THAT WEATHER MODIFICATION ACTIVITY TOOK PLACE IN:** Identify the single U.S. state where the weather modification took place. Utilize state information in the filename and geographic context in the report. Use lowercase and convert USPS codes to full names (e.g., "UT" to "utah").
 
-5. **OPERATOR AFFILIATION:** Identify the operator affiliation who carried out the project (e.g. North American Weather Consultants, Weather Modification LLC, Western Weather Consultants). Never include peoples' real names.
+5. **OPERATOR AFFILIATION:** Extract the company or organization that conducted the seeding operations (e.g. atmospherics inc, north american weather consultants, weather modification llc, deser research inc (DRI), western weather consultants). **Never include personal names**. Strip names and titles like “general manager” or “director”. Preserve company suffixes like “inc.”, “llc”, or “consultants”.
 
-6. **TYPE OF CLOUD SEEDING AGENT USED:** Identify chemical or material agents used (e.g., silver iodide). Provide multiple agents as comma-separated values in lowercase when applicable.
+6. **TYPE OF CLOUD SEEDING AGENT USED:** Extract chemical or material agents used (e.g., silver iodide, calcium chloride, sodium iodide, ammonium iodide). Provide multiple agents as comma-separated values in lowercase when applicable.
 
-7. **TYPE OF APPARATUS USED TO DEPLOY AGENT:** Classify clearly as ground, airborne, or both (e.g., "ground, airborne").
+7. **TYPE OF APPARATUS USED TO DEPLOY AGENT:** Classify apparatus as ground, airborne, or "ground, airborne" if both methods were employed to disperse the cloud seeding agent.
 
-8. **PURPOSE OF PROJECT OR ACTIVITY:** Concisely summarize the project's primary goal (e.g., augment snowpack, increase rain). Provide multiple purposes as comma-separated values in lowercase if applicable.
+8. **PURPOSE OF PROJECT OR ACTIVITY:** Extract the project's main goal (e.g., augment snowpack, increase snowfall, increase rain, enhance precipitation, increase precipitation, increase runoff, suppress hail, research). Provide multiple purposes as comma-separated values in lowercase if applicable.
 
-9. **TARGET AREA LOCATION:** Specify the geographical region targeted (e.g., river basin, mountain range, ski resort).
+9. **TARGET AREA LOCATION:** Specify the geographical region targeted for the cloud seeding (e.g., specific county in the state, specific river basin, mountain range, ski resort). Avoid using "see map".
 
-10. **CONTROL AREA LOCATION:** Specify the geographical region used as scientific control (e.g., river basin, mountain range, ski resort). Leave blank if not found, or marked as "none" or "NA".
+10. **CONTROL AREA LOCATION:** Specify the geographical region used as scientific control, if any (e.g., adjacent areas, river basin, various sites in utah, none, same as target area). Leave blank if not found, or marked as "none" or "NA". Avoid using "see map".
 
-11. **START DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+11. **START DATE OF WEATHER MODIFICATION ACTIVITY:** Extract directly from the text or infer from filename. Use **mm/dd/yyyy** format. If start date is not found in report text, infer from the filename.
 
-12. **END DATE OF WEATHER MODIFICATION ACTIVITY:** Extract or infer from the text or filename in mm/dd/yyyy format.
+12. **END DATE OF WEATHER MODIFICATION ACTIVITY:** Extract directly from the text or infer from filename. Use **mm/dd/yyyy** format. If end date is not found in report text, infer from the filename.
 
-## Example Chain-of-Thought Reasoning
+## Example Reasoning (Internal)
 
-**YEAR OF WEATHER MODIFICATION ACTIVITY:**
+Use structured internal logic to infer each field. For example:
+
+**PURPOSE:**
+- Extracted text explicitly mentions: "purpose of project or activity" to be "Rain Enhancement".
+- Clearly identified the purpose.
+- Final inference: **enhance rain**
+
+- Extracted text explicitly mentions: "purpose of project or activity" to be "Augment Snowpack".
+- Clearly identified the purpose.
+- Final inference: **augment snowpack**
+
+**YEAR:**
 - Filename: `2018UTNORT-1.pdf`
 - Filename starts with `2018`, clearly indicating the year.
 - No conflicting year mentioned elsewhere.
@@ -319,7 +349,7 @@ The fields you must extract are detailed below, with guidelines for each:
 - Date range ends on `12.31.2000`, confirming the relevant year.
 - Final inference: **2000**
 
-**U.S. STATE:**
+**STATE:**
 - Filename: `2018UTNORT-1.pdf`
 - Segment `UT` matches official USPS state code for Utah.
 - No conflicting geographic indicators.
@@ -330,13 +360,24 @@ The fields you must extract are detailed below, with guidelines for each:
 - Requires geographic domain knowledge.
 - Final inference: **california**
 
-**TYPE OF CLOUD SEEDING AGENT USED:**
+**AGENT:**
 - Extracted text explicitly mentions: "silver iodide released using ground-based generators."
 - Clearly identified agent.
 - No additional agents mentioned.
 - Final inference: **silver iodide**
 
-**TYPE OF APPARATUS USED TO DEPLOY AGENT:**
+**SEASON:**
+- Filename: `Eastern Sierra_00-1038_01.01.2000-12.31.2000.pdf`
+- Date range spans January to December, but weather modification in the Eastern Sierra typically targets snowpack in winter.
+- Winter inference is supported by geographic and program context, as well as silver iodide seeding agent.
+- Final inference: **winter**
+
+- Filename: `Southern Ogallala Aquifer Rainfall (soar) Program_04-1241_04.01.2004-08.15.2004.pdf`
+- Date range is April to August, aligning with the convective storm season in the Southern Plains of Texas.
+- Hail and rainfall augmentation in Texas region is typically conducted in summer.
+- Final inference: **summer**
+
+**APPARATUS:**
 - Extracted text explicitly mentions: "silver iodide dispersed by aircraft-mounted flares."
 - Indicates airborne apparatus.
 - Final inference: **airborne**
@@ -345,12 +386,11 @@ The fields you must extract are detailed below, with guidelines for each:
 - Indicates both apparatus types.
 - Final inference: **ground, airborne**
 
-[Continue using similarly structured reasoning for all fields]
-
 ## Final Extracted Fields Format
 
 Present your final extracted results concisely as follows, in lowercase, comma-separating multiple values when applicable.
-Do not include commentary, explanations, or placeholders. Leave fields blank if truly unknowable after exhausting all inference methods.
+
+Do not include commentary, explanations, or placeholders. Leave field blank if truly unknowable after exhausting all inference methods using the filename and text evidence.
 
 PROJECT: [extracted value]
 YEAR: [extracted value]  
@@ -371,11 +411,6 @@ END DATE: [extracted value]
 
     # MAIN LOOP
     results = []
-
-    # num_files = 5
-    # random_files = random.sample(files_to_process, min(num_files, len(files_to_process)))
-    # for file in random_files:
-    #     full_path = os.path.join(input_directory, file)
     for i, file in enumerate(files_to_process, 1):
         full_path = os.path.join(input_directory, file)
         try:
@@ -386,7 +421,7 @@ END DATE: [extracted value]
         except Exception as e:
             print(f"Error processing {file}: {e}")
         
-        if i % 3 == 0 or i == len(files_to_process):
+        if i % 5 == 0 or i == len(files_to_process):
             save_to_csv(results, output_file, fieldnames)
             print(f"Saved {i} processed files to {output_file}")
             print(f"PDF extraction methods used: {dict(method_counter)}")

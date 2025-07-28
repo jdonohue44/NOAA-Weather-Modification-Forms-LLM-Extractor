@@ -2,7 +2,7 @@ import pandas as pd
 import difflib
 import re
 
-result = '../../dataset/test/july/july-golden-200-o3.cleaned.csv'
+result = '../../dataset/test/july/cleaned-final-test-july-golden-200-o3-prompt-D.csv'
 golden = '../../goldens-for-accuracy-evals/golden-datasets/july/golden-200.csv'
 key = 'filename'
 
@@ -85,9 +85,8 @@ agent_concepts = [
 ]
 
 control_area_concepts = [
-    ['none', 'na', 'nan', '', ' ', 'no control', 'n/a', 'not specified'],
-    ['same as target area', 'target area', 'adjacent areas', 'surrounding area', 'not a target/control project', 'whichever of the two ranges is not seeded'],
-    ['various sites', 'multiple locations', 'regional area']
+    ['none', 'na', 'nan', '', ' ', 'no control', 'n/a', 'not specified', 'same as target area', 'target area', 'not a target/control project'],
+    ['various sites', 'multiple locations', 'regional area', 'adjacent areas', 'surrounding area', 'whichever of the two ranges is not seeded']
 ]
 
 operator_concepts = [
@@ -174,7 +173,7 @@ def compute_field_accuracy(output_csv, golden_csv, key='filename', verbose=False
 
         for count, idx in enumerate(df_gold.index):
             if idx not in df_out.index:
-                print(f"MISSING FROM GOLDEN CSV IN RESULT CSV AT ROW INDEX {idx}")
+                # print(f"MISSING: {idx}")
                 continue
 
             out_val = str(df_out.at[idx, field]).strip().lower()

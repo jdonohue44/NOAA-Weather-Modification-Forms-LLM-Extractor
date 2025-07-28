@@ -1,7 +1,11 @@
 import pandas as pd
 
 def load_dataset(path):
-    return pd.read_csv(path)
+    return pd.read_csv(
+        path,
+        na_values=['', 'none', 'n/a', 'na', 'null'],
+        keep_default_na=True
+    )
 
 def standardize_column_names(df):
     df.columns = [col.strip().lower() for col in df.columns]
@@ -18,11 +22,11 @@ def lowercase_text(df):
 def parse_dates(df):
     for col in ['start_date', 'end_date']:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%Y-%m-%d')
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+            df[col] = df[col].dt.strftime('%Y-%m-%d').fillna(pd.NA)
     return df
 
 def remove_duplicates(df):
-    # Keep only the first occurrence of each duplicate filename
     before = len(df)
     df = df.drop_duplicates(subset='filename', keep='first')
     after = len(df)
@@ -35,7 +39,31 @@ def sort_dataset(df):
         df = df.sort_values(by=['filename'])
     return df
 
-def validate_required_columns(df, required=['filename', 'start_date', 'end_date']):
+def normalize_missing_values(df):
+    df.replace(
+        to_replace=['', 'none', 'n/a', 'na', 'null'],
+        value=pd.NA,
+        inplace=True
+    )
+    return df
+
+def validate_required_columns(df, required=None):
+    if required is None:
+        required = [
+            'filename',
+            'project',
+            'year',
+            'season',
+            'state',
+            'operator_affiliation',
+            'agent',
+            'apparatus',
+            'purpose',
+            'target_area',
+            'control_area',
+            'start_date',
+            'end_date'
+        ]
     missing = [col for col in required if col not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
@@ -46,14 +74,15 @@ def clean_dataset(path, output_path):
     df = standardize_column_names(df)
     df = validate_required_columns(df)
     df = lowercase_text(df)
+    df = normalize_missing_values(df)
     df = parse_dates(df)
     df = remove_duplicates(df)
     df = sort_dataset(df)
 
     df.to_csv(output_path, index=False)
-    print(f"✅ Cleaned dataset saved to: {output_path}")
+    print(f"Cleaned dataset saved to: {output_path}")
 
 if __name__ == "__main__":
-    input_path = "july-golden-200-o3.csv"
-    output_path = "july-golden-200-o3.cleaned.csv"
+    input_path = "final-test-july-golden-200-o3-prompt-D.csv"
+    output_path = "cleaned-final-test-july-golden-200-o3-prompt-D.csv"
     clean_dataset(input_path, output_path)
