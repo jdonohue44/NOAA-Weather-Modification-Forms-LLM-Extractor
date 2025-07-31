@@ -75,11 +75,6 @@ def save_method_counts(counter, file_path):
             f.write(f"{method}: {count}\n")
     print(f"Method counts appended to {file_path}")
 
-
-# def contains_all_phrases(text):
-#     text_lower = text.lower()
-#     return all(phrase in text_lower for phrase in FORM_17_4_KEY_PHRASES)
-
 def contains_all_phrases(text):
     text_lower = text.lower()
     missing_phrases = [phrase for phrase in FORM_17_4_KEY_PHRASES if phrase not in text_lower]
@@ -141,7 +136,7 @@ def extract_pdf_text(file_path, llm_whisper_client):
     except Exception as e:
         print(f"LLM Whisperer failed: {e}")
 
-    return {'pdf_text': '[No content extracted]'}
+    raise RuntimeError("All PDF text extraction methods failed (PyMuPDF, OCR, LLM Whisperer)")
 
 def parse_gpt_response(response_text):
     data = {
@@ -204,7 +199,7 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
         """
     except Exception as e:
         print(f"Error extracting text from PDF : {str(e)}")
-        return None
+        raise e
 
     # DEBUG PDF TEXT
     # print(pdf_text)
@@ -225,16 +220,17 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
             response_text = response.choices[0].message.content
             break 
         except OpenAIError as e:
+            last_error = e
             print(f"OpenAI API error (attempt {attempt + 1} of {retries}): {str(e)}")
         except Exception as e:
+            last_error = e
             print(f"Unexpected error calling OpenAI (attempt {attempt + 1} of {retries}): {str(e)}")
-
         time.sleep(backoff)
         backoff *= 2 
 
     if not response_text:
-        print(f"Skipping {file_path} after {retries} failed attempts.")
-        return None
+        raise RuntimeError(f"OpenAI failed after {retries} attempts for {file_path}: {last_error}")
+
     
     # DEBUG LLM RESPONSE
     # print(response_text)
@@ -250,9 +246,9 @@ def process_file(file, file_path, llm_whisper_client, gpt_client, llm_variant, l
 
 def main():
     # INPUT FILES
-    input_directory = "../goldens-for-accuracy-evals/golden-noaa-files/golden-200"
-    output_file = "../dataset/test/july/final-7-28-test-july.csv"
-    checkpoint_file = "../dataset/test/july/final_7_28_processed_files_final_test.txt"
+    input_directory = "../noaa-files"
+    output_file = "../dataset/final/cloud_seeding_us_2000_2025.csv"
+    checkpoint_file = "../dataset/final/processed-files.txt"
 
     # LOAD NOAA FILES TO PROCESS
     processed_files = load_processed_files(checkpoint_file)
@@ -310,7 +306,7 @@ Output only the final extracted fields using the format and rules provided below
 
 4. **U.S. STATE THAT WEATHER MODIFICATION ACTIVITY TOOK PLACE IN:** Identify the single U.S. state where the weather modification took place. Utilize state information in the filename and geographic context in the report. Use lowercase and convert USPS codes to full names (e.g., "UT" to "utah").
 
-5. **OPERATOR AFFILIATION:** Extract the company or organization that conducted the seeding operations (e.g. atmospherics inc, north american weather consultants, weather modification llc, deser research inc (DRI), western weather consultants). **Never include personal names**. Strip names and titles like “general manager” or “director”. Preserve company suffixes like “inc.”, “llc”, or “consultants”.
+5. **OPERATOR AFFILIATION:** Extract the company or organization that conducted the seeding operations (e.g. atmospherics inc, north american weather consultants, weather modification llc, deser research inc (DRI), western weather consultants, water enhancement authority). **Never include personal names**. Strip names and titles like “general manager” or “director”. Preserve company suffixes like “inc.”, “llc”, or “consultants”.
 
 6. **TYPE OF CLOUD SEEDING AGENT USED:** Extract chemical or material agents used (e.g., silver iodide, calcium chloride, sodium iodide, ammonium iodide). Provide multiple agents as comma-separated values in lowercase when applicable.
 
@@ -419,13 +415,20 @@ END DATE: [extracted value]
                 results.append(result)
                 save_processed_file(checkpoint_file, file)
         except Exception as e:
-            print(f"Error processing {file}: {e}")
+            print(f"\n🛑 Critical error processing {file}: {e}")
+            print("→ Saving progress and exiting safely...")
+            # Save current batch before exit
+            if results:
+                save_to_csv(results, output_file, fieldnames)
+                print(f"Partial batch saved ({len(results)} files) to {output_file}")
+            save_method_counts(method_counter, '../dataset/final/pdf_method_counts.txt')
+            sys.exit(1)
         
         if i % 5 == 0 or i == len(files_to_process):
             save_to_csv(results, output_file, fieldnames)
             print(f"Saved {i} processed files to {output_file}")
             print(f"PDF extraction methods used: {dict(method_counter)}")
-            save_method_counts(method_counter, '../dataset/test/pdf_method_counts.txt')
+            save_method_counts(method_counter, '../dataset/final/pdf_method_counts.txt')
             results = []
 
     if results:
@@ -434,7 +437,7 @@ END DATE: [extracted value]
 
     print(f"Processing complete. Final results saved to {output_file}")
     print(f"PDF extraction methods used: {dict(method_counter)}")
-    save_method_counts(method_counter, '../dataset/test/pdf_method_counts.txt')
+    save_method_counts(method_counter, '../dataset/final/pdf_method_counts.txt')
 
 if __name__ == "__main__":
     main()

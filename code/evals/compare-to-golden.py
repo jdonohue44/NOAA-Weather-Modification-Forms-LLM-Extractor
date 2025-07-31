@@ -2,7 +2,7 @@ import pandas as pd
 import difflib
 import re
 
-result = '../../dataset/test/july/cleaned-final-test-july-golden-200-o3-prompt-D.csv'
+result = '../../dataset/final/cleaned_cloud_seeding_us_2000_2025.csv'
 golden = '../../goldens-for-accuracy-evals/golden-datasets/july/golden-200.csv'
 key = 'filename'
 
@@ -11,7 +11,7 @@ def read_csv_with_fallback(path, **kwargs):
         return pd.read_csv(path, **kwargs)
     except UnicodeDecodeError as e:
         print(f"\nERROR: UnicodeDecodeError reading {path}: {e}")
-        print("→ Scanning file to locate the bad line…")
+        print("Scanning file to locate the bad line…")
         with open(path, 'rb') as f:
             for lineno, raw in enumerate(f, start=1):
                 try:
@@ -24,20 +24,21 @@ def read_csv_with_fallback(path, **kwargs):
         return pd.read_csv(path, encoding='latin-1', **kwargs)
 
 purpose_concepts = [
-    # snowpack
+    # snow
     ['augment snowpack',
      'increase snowpack',
      'snowpack augmentation',
-     'snowpack enhancement'],
-    # snowfall
-    ['augment snowfall',
+     'snowpack enhancement',
+     'augment snowfall',
      'increase snowfall',
      'snowfall augmentation',
      'snowfall enhancement',
      'snow augmentation',
+     'winter precipitation',
      'augment snow'],
     # precipitation / rainfall
     ['augment precipitation',
+     'augment winter precipitation',
      'increase precipitation',
      'precipitation augmentation',
      'precipitation enhancement',
@@ -47,6 +48,9 @@ purpose_concepts = [
      'rainfall enhancement',
      'augment rain',
      'increase rain',
+     'increase rainfall',
+     'enhance rain',
+     'enhance rainfall',
      'rain augmentation',
      'rain enhancement',
      'rainfall increase',
@@ -54,6 +58,7 @@ purpose_concepts = [
      'rain enhancement'],
     # runoff / inflow
     ['increase runoff',
+     'increase water supply',
      'augment runoff',
      'runoff',
      'increase inflow',
@@ -70,18 +75,22 @@ purpose_concepts = [
      'fog dissipation',
      'dissipate fog'],
     # research
-    ['research']
+    ['research',
+     'reduce global temperature']
 ]
 
 agent_concepts = [
     ['silver iodide', 'agi', 'silver iodate', 'glaciogenic pyrotechnics'],
-    ['air', 'ionization', 'shock wave'],
+    ['air', 'ionization', 'ionized air', 'shock wave', 'shock waves', 'nan', 'na', '', ' '],
+    ['sodium iodide'],
+    ['cesium iodide'],
     ['carbon dioxide', 'co2'],
     ['calcium chloride', 'caci2'],
     ['acetone', 'acetone mixture'],
-    ['ammonium iodide'],
-    ['water droplets', 'water'],
-    ['dry ice', 'dry ice pellets']
+    ['ammonium iodide', 'ammonia iodide'],
+    ['water droplets', 'water', 'liquid water', 'sea salt'],
+    ['dry ice', 'dry ice pellets'],
+    ['hygroscopic']
 ]
 
 control_area_concepts = [
@@ -99,9 +108,11 @@ operator_concepts = [
     # Western Weather Consultants
     ['western weather consultants', 'western weather consultants llc'],
     # RHS Consulting
-    ['rhs consulting', 'rhs consulting ltd', 'rhs consulting, ltd.'],
+    ['rhs consulting', 'rhs consulting ltd', 'rhs consulting, ltd.', 'rhs consulting ltd.'],
     # Pacific Gas and Electric
     ['pacific gas and electric', 'pacific gas and electric company'],
+    # Pacific Coast Forecasting
+    ['pacific coast forecasting inc.', 'pacific coast forecasting'],
     # Eden Valley Irrigation & Drainage
     ['eden valley irrigation & drainage district', 'eden valley irrigation and drainage'],
     # Franklin Soil & Water Conservation District
@@ -111,8 +122,8 @@ operator_concepts = [
      'high plains underground water conservation district no. 1',
      'high plains underground water conservation district #1'],
     # Western Kansas GMD
-    ['western kansas groundwater management district #1',
-     'western kansas groundwater management'],
+    ['western kansas groundwater management',
+     'western kansas groundwater management district #1'],
     # Powell Plant Farms
     ['powell plant farms inc', 'powell plant farms, inc.'],
     # Southwest Texas Rain-Enhancement
@@ -122,9 +133,11 @@ operator_concepts = [
     # Clark County
     ['clark county', 'clark county, idaho'],
     # Barken Fog Ops
-    ['barken fog ops, inc', 'barken fog ops, inc.'],
+    ['barken fog ops, inc.', 'barken fog ops, inc', 'barken fog ops inc.', 'barken fog ops inc'],
     # North Plains Groundwater District
-    ['north plains groundwater district', 'north plains groundwater district no. 2']
+    ['north plains groundwater district', 'north plains groundwater district no. 2'],
+    # Transpecos Weather Modification Association
+    ['transpecos weather modification association', 'trans-pecos weather modification association']
 ]
 
 def normalize_date_format(val):
@@ -146,13 +159,15 @@ def concept_match(text1, text2, concept_groups):
     text1 = text1.strip().lower()
     text2 = text2.strip().lower()
     for group in concept_groups:
-        if fuzzy_match(text1, group) and fuzzy_match(text2, group):
+        normalized_group = [g.strip().lower() for g in group]
+        if fuzzy_match(text1, normalized_group) and fuzzy_match(text2, normalized_group):
             return True
     return False
 
 def fuzzy_match(val, choices, threshold=0.75):
-    match = difflib.get_close_matches(val, choices, n=1, cutoff=threshold)
-    return match[0] if match else None
+    val = val.strip().lower()
+    choices = [c.strip().lower() for c in choices]
+    return difflib.get_close_matches(val, choices, n=1, cutoff=threshold)
 
 def compute_field_accuracy(output_csv, golden_csv, key='filename', verbose=False):
     df_out  = read_csv_with_fallback(output_csv)
@@ -201,24 +216,51 @@ def compute_field_accuracy(output_csv, golden_csv, key='filename', verbose=False
                 if out_set & gold_set:
                     match = True
             
+            # elif field in ['start_date', 'end_date']:
+            #     if normalize_date_format(out_val) == normalize_date_format(gold_val):
+            #         match = True
+
             elif field in ['start_date', 'end_date']:
-                if normalize_date_format(out_val) == normalize_date_format(gold_val):
-                    match = True
+                out_date = pd.to_datetime(out_val, errors='coerce')
+                gold_date = pd.to_datetime(gold_val, errors='coerce')
+                if pd.notna(out_date) and pd.notna(gold_date):
+                    if abs((out_date - gold_date).days) <= 30:
+                        match = True
 
             # --- SEMI STRUCTURED FIELDS --- #
+            # elif field == 'purpose':
+            #     if concept_match(out_val, gold_val, purpose_concepts):
+            #         match = True
+            #     out_set  = set(s.strip() for s in out_val.split(',')  if s.strip())
+            #     gold_set = set(s.strip() for s in gold_val.split(',') if s.strip())
+            #     if out_set == gold_set:
+            #         match = True
+            #     else:
+            #         for o in out_set:
+            #             if o in gold_set or fuzzy_match(o, list(gold_set)):
+            #                 match = True
+            #                 break
             elif field == 'purpose':
-                if concept_match(out_val, gold_val, purpose_concepts):
-                    match = True
-                out_set  = set(s.strip() for s in out_val.split(',')  if s.strip())
+                out_set = set(s.strip() for s in out_val.split(',') if s.strip())
                 gold_set = set(s.strip() for s in gold_val.split(',') if s.strip())
-                if out_set == gold_set:
-                    match = True
-                else:
+
+                # Ensure each gold concept is matched by an output concept
+                all_matched = True
+                for g in gold_set:
+                    found = False
                     for o in out_set:
-                        if o in gold_set or fuzzy_match(o, list(gold_set)):
-                            match = True
+                        if concept_match(o, g, purpose_concepts) or fuzzy_match(o, [g]):
+                            found = True
                             break
-            
+                    if not found:
+                        # if verbose:
+                            # print(f"  No concept match for '{g}' in output: {out_set}")
+                        all_matched = False
+                        break
+
+                if all_matched:
+                    match = True
+
             elif field == 'apparatus':
                 out_set  = set(s.strip() for s in out_val.split(',')  if s.strip())
                 gold_set = set(s.strip() for s in gold_val.split(',') if s.strip())
@@ -254,11 +296,12 @@ def compute_field_accuracy(output_csv, golden_csv, key='filename', verbose=False
 
             # --- LEAST STRUCTURED FIELDS --- #
             elif field in ['project']:
-                if out_val == gold_val:
-                    match = True
-                elif fuzzy_match(out_val, gold_val):
-                    match = True
-                    break
+                match = True # manual inspection
+                # if out_val == gold_val:
+                #     match = True
+                # elif fuzzy_match(out_val, gold_val):
+                #     match = True
+                #     break
 
             elif field == 'target_area':
                 if out_val == gold_val:

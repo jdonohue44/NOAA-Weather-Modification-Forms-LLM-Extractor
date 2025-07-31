@@ -1,4 +1,12 @@
+from evals.concepts import (
+    PURPOSE_MAP,
+    AGENT_MAP,
+    CONTROL_MAP,
+    OPERATOR_MAP,
+    _slug,             
+)
 import pandas as pd
+import re
 
 def load_dataset(path):
     return pd.read_csv(
@@ -47,6 +55,30 @@ def normalize_missing_values(df):
     )
     return df
 
+def _apply_mapping(cell, mapping):
+    if pd.isna(cell):
+        return pd.NA
+    parts = re.split(r'[;,]|\\band\\b|\\b&\\b|\\bplus\\b', str(cell).lower())
+    mapped = [mapping.get(_slug(p), _slug(p)) for p in parts if p.strip()]
+    # parts = re.split(r'[;,]', str(cell).lower())
+    # mapped = [mapping.get(p.strip(), p.strip()) for p in parts if p.strip()]
+    # dedupe while preserving order
+    seen = set()
+    canonical_parts = [t for t in mapped if not (t in seen or seen.add(t))]
+    return ', '.join(canonical_parts)
+
+def standardize_semantic_terms(df):
+    col_to_map = {
+        'purpose': PURPOSE_MAP,
+        'agent': AGENT_MAP,
+        'control_area': CONTROL_MAP,
+        'operator_affiliation': OPERATOR_MAP,
+    }
+    for col, mp in col_to_map.items():
+        if col in df.columns:
+            df[col] = df[col].apply(_apply_mapping, args=(mp,))
+    return df
+
 def validate_required_columns(df, required=None):
     if required is None:
         required = [
@@ -74,6 +106,7 @@ def clean_dataset(path, output_path):
     df = standardize_column_names(df)
     df = validate_required_columns(df)
     df = lowercase_text(df)
+    df = standardize_semantic_terms(df)
     df = normalize_missing_values(df)
     df = parse_dates(df)
     df = remove_duplicates(df)
@@ -83,6 +116,6 @@ def clean_dataset(path, output_path):
     print(f"Cleaned dataset saved to: {output_path}")
 
 if __name__ == "__main__":
-    input_path = "final-test-july-golden-200-o3-prompt-D.csv"
-    output_path = "cleaned-final-test-july-golden-200-o3-prompt-D.csv"
+    input_path = "../dataset/final/cloud_seeding_us_2000_2025.csv"
+    output_path = "../dataset/final/cleaned_cloud_seeding_us_2000_2025.csv"
     clean_dataset(input_path, output_path)
