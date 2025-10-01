@@ -23,7 +23,7 @@ from openai import OpenAI, OpenAIError
 from collections import Counter
 method_counter = Counter()
 
-# Form 17-4 Key Phrases
+# Form 17-4 Key Phrases. All must be present to proceed with PyMuPDF or pytesseract as the text extraction method. 
 FORM_17_4_KEY_PHRASES = [
     "initial report on weather modification",
     "project or activity designation",
@@ -85,11 +85,12 @@ def contains_all_phrases(text):
         return False
     return True
 
+# Extract pdf text using three text extraction technologies via waterfall: (1) PyMuPDF (free, native text) --> (2) pytesseract (free, OCR) --> LLM Whisperer (paid, OCR+native)
 def extract_pdf_text(file_path, llm_whisper_client):
     # PyMuPDF
     try:
         doc = pymupdf.open(file_path)
-        text = doc[0].get_text().strip()
+        text = doc[0].get_text().strip() # only process first page
         # DEBUG TEXT LENGTH
         print(len(text))
         if len(text) > 1000 and contains_all_phrases(text):
@@ -104,7 +105,7 @@ def extract_pdf_text(file_path, llm_whisper_client):
     try:
         images = convert_from_path(file_path, first_page=1, last_page=1)
         if images:
-            text = pytesseract.image_to_string(images[0], lang='eng').strip()
+            text = pytesseract.image_to_string(images[0], lang='eng').strip() # only process first page
             # DEBUG TEXT LENGTH
             print(len(text))
             if len(text) > 1000 and contains_all_phrases(text):
@@ -119,7 +120,7 @@ def extract_pdf_text(file_path, llm_whisper_client):
     try:
         result = llm_whisper_client.whisper(
             file_path=file_path,
-            pages_to_extract="1", 
+            pages_to_extract="1", # only process first page
             lang='eng',
             wait_for_completion=True,
             wait_timeout=200
